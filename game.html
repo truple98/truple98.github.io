@@ -248,8 +248,10 @@
             canvas.style.height = canvasHeight + 'px';
         }
 
-        // 초기 로드 및 리사이즈 시 호출
-        window.addEventListener('load', resizeCanvas);
+        // 즉시 실행
+        resizeCanvas();
+
+        // 리사이즈 및 회전 시 호출
         window.addEventListener('resize', resizeCanvas);
         window.addEventListener('orientationchange', resizeCanvas);
 
