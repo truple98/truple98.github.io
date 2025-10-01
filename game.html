@@ -14,49 +14,57 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            touch-action: none;
+        }
+
         body {
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
             background: #f7f7f7;
             font-family: "Doto", sans-serif;
+            margin: 0;
+            padding: 0;
         }
 
         #gameContainer {
             text-align: center;
             position: relative;
-            min-width: 1240px; /* 캔버스(1200) + 여백(40) */
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
         #gameCanvas {
             border: 2px solid #333;
             background: white;
             display: block;
-            margin: 0 auto;
-        }
-
-        /* 모바일 환경에서만 최소 너비 적용 */
-        @media (max-width: 768px) {
-            body {
-                overflow-x: auto;
-                overflow-y: auto;
-            }
-
-            #gameContainer {
-                min-width: 1240px; /* 강제 최소 너비 */
-            }
         }
 
         #score {
-            font-size: 24px;
-            margin: 10px;
+            font-size: 20px;
+            margin: 5px;
             font-weight: bold;
             position: absolute;
             top: 10px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 10;
+        }
+
+        @media (max-width: 768px) {
+            #score {
+                font-size: 16px;
+                top: 5px;
+            }
         }
 
         #gameOver {
@@ -99,8 +107,18 @@
         }
 
         #instructions {
-            margin: 10px;
+            margin: 5px;
             color: #666;
+            font-size: 14px;
+            position: absolute;
+            bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            #instructions {
+                font-size: 12px;
+                bottom: 5px;
+            }
         }
 
         /* BGM 컨트롤러 */
@@ -109,18 +127,27 @@
             top: 10px;
             right: 10px;
             background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
+            padding: 10px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
             z-index: 5;
         }
 
+        @media (max-width: 768px) {
+            #bgmController {
+                padding: 8px;
+                gap: 5px;
+                top: 5px;
+                right: 5px;
+            }
+        }
+
         #bgmController button {
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
             border: none;
             background: #5cb85c;
@@ -129,7 +156,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 16px;
             padding: 0;
             margin: 0;
         }
@@ -146,6 +173,23 @@
             font-size: 12px;
             color: #666;
             min-width: 60px;
+        }
+
+        @media (max-width: 768px) {
+            #bgmController button {
+                width: 30px;
+                height: 30px;
+                font-size: 14px;
+            }
+
+            #bgmController input[type="range"] {
+                width: 60px;
+            }
+
+            #bgmController .track-info {
+                font-size: 10px;
+                min-width: 50px;
+            }
         }
     </style>
 </head>
@@ -176,6 +220,47 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
+        // 모바일 여부 감지
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        // 화면 크기에 맞게 캔버스 조정 (최대 크기 제한)
+        function resizeCanvas() {
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const gameRatio = 1200 / 400; // 게임 캔버스 비율 (width / height)
+            const maxWidth = 1200; // 최대 너비
+            const maxHeight = 400; // 최대 높이
+
+            let canvasWidth, canvasHeight;
+
+            if (!isMobile()) {
+                // PC 환경: 최대 크기 제한
+                canvasWidth = maxWidth;
+                canvasHeight = maxHeight;
+            } else {
+                // 모바일 환경: 화면에 맞게 조정 (최대 크기 제한)
+                // 화면 비율에 맞춰서 캔버스 크기 결정
+                if (vw / vh > gameRatio) {
+                    // 화면이 더 넓음 - 높이 기준으로 조정
+                    canvasHeight = Math.min(vh * 0.7, maxHeight);
+                    canvasWidth = canvasHeight * gameRatio;
+                } else {
+                    // 화면이 더 좁음 - 너비 기준으로 조정
+                    canvasWidth = Math.min(vw * 0.95, maxWidth);
+                    canvasHeight = canvasWidth / gameRatio;
+                }
+            }
+
+            canvas.style.width = canvasWidth + 'px';
+            canvas.style.height = canvasHeight + 'px';
+        }
+
+        // 초기 로드 및 리사이즈 시 호출
+        window.addEventListener('load', resizeCanvas);
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', resizeCanvas);
 
         // ============================================
         // 게임 설정 (모든 값을 여기서 조정)
