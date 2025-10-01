@@ -76,6 +76,14 @@
             text-align: center;
             z-index: 100;
             width: 400px;
+            max-width: 90vw;
+        }
+
+        @media (max-width: 768px) {
+            #gameOver {
+                width: 300px;
+                padding: 30px 40px;
+            }
         }
 
         #gameOver h2 {
@@ -84,9 +92,21 @@
             font-size: 32px;
         }
 
+        @media (max-width: 768px) {
+            #gameOver h2 {
+                font-size: 24px;
+            }
+        }
+
         #gameOver p {
             font-size: 20px;
             margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            #gameOver p {
+                font-size: 16px;
+            }
         }
 
         button {
@@ -897,19 +917,13 @@
             }
         });
 
-        // 마우스 클릭 (캔버스에서만)
-        canvas.addEventListener('mousedown', () => {
-            if (!gameStarted) {
-                startGame();
-            } else if (gameRunning) {
-                player.jump();
-            }
-        });
-
         // 브라우저 전체에서 클릭 감지
         document.addEventListener('mousedown', (e) => {
-            // BGM 컨트롤러나 게임오버 모달 클릭은 제외
-            if (e.target.closest('#bgmController') || e.target.closest('#gameOver')) {
+            // BGM 컨트롤러, 게임오버 모달, 버튼/인풋 클릭은 제외
+            if (e.target.closest('#bgmController') ||
+                e.target.closest('#gameOver') ||
+                e.target.tagName === 'BUTTON' ||
+                e.target.tagName === 'INPUT') {
                 return;
             }
 
@@ -922,8 +936,8 @@
 
         // 모바일 터치 지원 (브라우저 전체)
         document.addEventListener('touchstart', (e) => {
-            // BGM 컨트롤러나 게임오버 모달 터치는 제외
-            if (e.target.closest('#bgmController') || e.target.closest('#gameOver')) {
+            // BGM 컨트롤러 터치는 제외
+            if (e.target.closest('#bgmController')) {
                 return;
             }
 
@@ -932,20 +946,12 @@
             if (!gameStarted) {
                 startGame();
             } else if (gameStarted && !gameRunning) {
+                // 게임오버 상태면 재시작
                 restartGame();
             } else if (gameRunning) {
                 player.jump();
             }
         }, { passive: false });
-
-        // 모바일에서 게임오버 모달 터치로 재시작
-        document.getElementById('gameOver').addEventListener('touchstart', (e) => {
-            if (gameStarted && !gameRunning) {
-                e.preventDefault();
-                e.stopPropagation();
-                restartGame();
-            }
-        });
 
         // ============================================
         // 초기화
