@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magnus Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f7f7f7;
+            font-family: "Doto", sans-serif;
+        }
+
+        #gameContainer {
+            text-align: center;
+            position: relative;
+        }
+
+        #gameCanvas {
+            border: 2px solid #333;
+            background: white;
+            display: block;
+            margin: 0 auto;
+        }
+
+        #score {
+            font-size: 24px;
+            margin: 10px;
+            font-weight: bold;
+            position: relative;
+            z-index: 10;
+        }
+
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px 60px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        #gameOver h2 {
+            color: #d9534f;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+
+        #gameOver p {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            background: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #4cae4c;
+        }
+
+        #instructions {
+            margin: 10px;
+            color: #666;
+        }
+
+        /* BGM 컨트롤러 */
+        #bgmController {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 5;
+        }
+
+        #bgmController button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: #5cb85c;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            padding: 0;
+            margin: 0;
+        }
+
+        #bgmController button:hover {
+            background: #4cae4c;
+        }
+
+        #bgmController input[type="range"] {
+            width: 80px;
+        }
+
+        #bgmController .track-info {
+            font-size: 12px;
+            color: #666;
+            min-width: 60px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="score">점수: 0</div>
+        <canvas id="gameCanvas" width="1200" height="400"></canvas>
+        <div id="instructions">스페이스바: 점프 | 클릭하여 시작</div>
+        <div id="gameOver">
+            <h2>Game Over!</h2>
+            <p>최종 점수: <span id="finalScore">0</span></p>
+            <p style="font-size: 16px; color: #666; margin-top: 10px;">스페이스바를 눌러 재시작</p>
+        </div>
+    </div>
+
+    <!-- BGM 컨트롤러 -->
+    <div id="bgmController">
+        <span class="track-info" id="trackInfo">BGM 1</span>
+        <button id="btnPrev" title="이전 곡">⏮</button>
+        <button id="btnPlayPause" title="재생/일시정지">▶</button>
+        <button id="btnNext" title="다음 곡">⏭</button>
+        <button id="btnMute" title="음소거">🔊</button>
+        <input type="range" id="volumeSlider" min="0" max="100" value="50" title="볼륨">
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // ============================================
+        // 게임 설정 (모든 값을 여기서 조정)
+        // ============================================
+        const CONFIG = {
+            // 게임 화면
+            canvas: {
+                width: 1200,
+                height: 400
+            },
+
+            // 게임 물리
+            physics: {
+                gravity: 0.6,           // 중력
+                jumpPower: -15,         // 점프 힘 (음수)
+                initialSpeed: 8,        // 초기 게임 속도
+                speedIncrement: 0.5     // 10점마다 증가하는 속도
+            },
+
+            // 지면 설정
+            ground: {
+                height: 400             // 지면 높이 (Y 좌표)
+            },
+
+            // 플레이어 설정
+            player: {
+                x: 80,                  // 시작 X 위치
+                width: 140,             // 표시 영역 너비
+                height: 100,            // 표시 영역 높이
+                imageSrc: 'assets/images/magnus.png', // 이미지 파일
+                imageWidth: null,       // 이미지 너비 (null = 비율 유지)
+                imageHeight: 100,       // 이미지 높이
+                hitbox: {               // 충돌 박스
+                    offsetX: 10,
+                    offsetY: 10,
+                    width: -20,
+                    height: -20
+                }
+            },
+
+            // 장애물 설정
+            obstacles: {
+                spawnInterval: 100,     // 생성 간격 (프레임)
+
+                tall: {                 // 서있는 레니
+                    imageSrc: 'assets/images/leni-stand.png',
+                    width: 50,         // 표시 영역 너비
+                    height: 100,        // 표시 영역 높이
+                    imageWidth: null,   // 이미지 너비 (null = 비율 유지)
+                    imageHeight: 100,   // 이미지 높이
+                    yOffset: 0,         // 지면으로부터 Y 오프셋
+                    hitbox: {
+                        offsetX: 0,
+                        offsetY: 0,
+                        width: 0,
+                        height: 0
+                    }
+                },
+
+                short: {                // 앉은 레니
+                    imageSrc: 'assets/images/leni-sit.png',
+                    width: 50,
+                    height: 70,
+                    imageWidth: null,
+                    imageHeight: 80,
+                    yOffset: 0,
+                    hitbox: {
+                        offsetX: 10,
+                        offsetY: 10,
+                        width: -20,
+                        height: -10
+                    }
+                },
+
+                flying: {               // 당근
+                    imageSrc: 'assets/images/carrot.png',
+                    width: 50,
+                    height: 20,
+                    imageWidth: null,
+                    imageHeight: 20,
+                    yOffsetMin: 0,   // 최소 높이 (지면으로부터)
+                    yOffsetMax: -180,   // 최대 높이 (지면으로부터)
+                    hitbox: {
+                        offsetX: 0,
+                        offsetY: 0,
+                        width: 0,
+                        height: 0
+                    }
+                }
+            },
+
+            // 사운드 설정
+            sounds: {
+                start: 'assets/sounds/start.wav',
+                bikeOn: 'assets/sounds/bike-on.mp3',
+                bikeRide: 'assets/sounds/bike-ride.mp3',
+                jump: 'assets/sounds/jump.wav',
+                bgm: ['assets/bgms/bgm_01.mp3', 'assets/bgms/bgm_02.mp3', 'assets/bgms/bgm_03.mp3', 'assets/bgms/bgm_04.mp3'],
+                crash: ['assets/sounds/crash.wav', 'assets/sounds/crash-bike.mp3'],
+                end: {
+                    tall: 'assets/sounds/leni-01.wav',    // 서있는 레니
+                    short: 'assets/sounds/leni-03.wav',   // 앉은 레니
+                    flying: 'assets/sounds/end.mp3'       // 당근로켓
+                }
+            },
+
+            // 디버그 (충돌 박스 표시)
+            debug: {
+                showHitbox: false,       // 충돌 박스 표시
+                showBackground: false    // 배경 박스 표시
+            }
+        };
+
+        // ============================================
+        // 게임 상태
+        // ============================================
+        let gameStarted = false;
+        let gameRunning = false;
+        let score = 0;
+        let distance = 0;           // 이동 거리
+        let gameSpeed = CONFIG.physics.initialSpeed;
+        let frameCount = 0;
+        let obstacles = [];
+
+        // ============================================
+        // 플레이어 객체
+        // ============================================
+        const player = {
+            x: CONFIG.player.x,
+            y: 0,
+            width: CONFIG.player.width,
+            height: CONFIG.player.height,
+            velocityY: 0,
+            jumping: false,
+            img: new Image(),
+            hitbox: CONFIG.player.hitbox,
+
+            init() {
+                this.img.src = CONFIG.player.imageSrc;
+                this.y = CONFIG.ground.height - this.height;
+            },
+
+            jump() {
+                if (!this.jumping && this.y >= CONFIG.ground.height - this.height) {
+                    this.velocityY = CONFIG.physics.jumpPower;
+                    this.jumping = true;
+
+                    // 점프 사운드 재생
+                    sounds.jump.currentTime = 0;
+                    sounds.jump.play().catch(e => console.log('Jump sound failed:', e));
+                }
+            },
+
+            update() {
+                this.velocityY += CONFIG.physics.gravity;
+                this.y += this.velocityY;
+
+                if (this.y > CONFIG.ground.height - this.height) {
+                    this.y = CONFIG.ground.height - this.height;
+                    this.velocityY = 0;
+                    this.jumping = false;
+                }
+            },
+
+            draw() {
+                // 배경 박스 (디버그)
+                if (CONFIG.debug.showBackground) {
+                    ctx.fillStyle = 'rgba(65, 105, 225, 0.3)';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
+
+                // 이미지 그리기
+                if (this.img.complete && this.img.naturalWidth > 0) {
+                    const drawWidth = CONFIG.player.imageWidth ||
+                        (CONFIG.player.imageHeight * (this.img.naturalWidth / this.img.naturalHeight));
+                    const drawHeight = CONFIG.player.imageHeight;
+                    ctx.drawImage(this.img, this.x, this.y, drawWidth, drawHeight);
+                }
+
+                // 충돌 박스 (디버그)
+                if (CONFIG.debug.showHitbox) {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(
+                        this.x + this.hitbox.offsetX,
+                        this.y + this.hitbox.offsetY,
+                        this.width + this.hitbox.width,
+                        this.height + this.hitbox.height
+                    );
+                }
+            }
+        };
+
+        // ============================================
+        // 장애물 관리
+        // ============================================
+        const obstacleImages = {};
+        const obstacleTypes = ['tall', 'short', 'flying'];
+
+        // 이미지 로드
+        obstacleTypes.forEach(type => {
+            obstacleImages[type] = new Image();
+            obstacleImages[type].src = CONFIG.obstacles[type].imageSrc;
+        });
+
+        function createObstacle() {
+            // 50% 확률로 연속 장애물 생성 (레니만, 당근 제외)
+            const isCombo = Math.random() < 0.5;
+
+            if (isCombo) {
+                const comboCount = Math.floor(Math.random() * 2) + 1; // 1~2개
+                const leniTypes = ['tall', 'short'];
+                const comboType = leniTypes[Math.floor(Math.random() * leniTypes.length)];
+
+                for (let i = 0; i < comboCount; i++) {
+                    createSingleObstacle(comboType, i);
+                }
+            } else {
+                createSingleObstacle();
+            }
+        }
+
+        function createSingleObstacle(fixedType = null, spacing = 0) {
+            const type = fixedType || obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+            const config = CONFIG.obstacles[type];
+
+            // 당근(flying)의 경우 랜덤 높이 계산
+            let yOffset;
+            if (type === 'flying') {
+                yOffset = config.yOffsetMin + Math.random() * (config.yOffsetMax - config.yOffsetMin);
+            } else {
+                yOffset = config.yOffset || 0;
+            }
+
+            // 연속 장애물인 경우 간격 조정
+            const drawWidth = config.imageWidth ||
+                (config.imageHeight * (obstacleImages[type].naturalWidth / obstacleImages[type].naturalHeight || 1));
+            const xPosition = canvas.width + (spacing * drawWidth);
+
+            const obstacle = {
+                type: type,
+                x: xPosition,
+                y: CONFIG.ground.height - config.height + yOffset,
+                width: config.width,
+                height: config.height,
+                imageWidth: config.imageWidth,
+                imageHeight: config.imageHeight,
+                img: obstacleImages[type],
+                hitbox: config.hitbox,
+
+                update() {
+                    this.x -= gameSpeed;
+                },
+
+                draw() {
+                    // 배경 박스 (디버그)
+                    if (CONFIG.debug.showBackground) {
+                        ctx.fillStyle = 'rgba(220, 20, 60, 0.3)';
+                        ctx.fillRect(this.x, this.y, this.width, this.height);
+                    }
+
+                    // 이미지 그리기
+                    if (this.img.complete && this.img.naturalWidth > 0) {
+                        const drawWidth = this.imageWidth ||
+                            (this.imageHeight * (this.img.naturalWidth / this.img.naturalHeight));
+                        const drawHeight = this.imageHeight;
+                        ctx.drawImage(this.img, this.x, this.y, drawWidth, drawHeight);
+                    }
+
+                    // 충돌 박스 (디버그)
+                    if (CONFIG.debug.showHitbox) {
+                        ctx.strokeStyle = 'blue';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(
+                            this.x + this.hitbox.offsetX,
+                            this.y + this.hitbox.offsetY,
+                            this.width + this.hitbox.width,
+                            this.height + this.hitbox.height
+                        );
+                    }
+                },
+
+                isOffScreen() {
+                    return this.x + this.width < 0;
+                }
+            };
+
+            obstacles.push(obstacle);
+        }
+
+        // ============================================
+        // 사운드 관리
+        // ============================================
+        const sounds = {
+            start: new Audio(CONFIG.sounds.start),
+            bikeOn: new Audio(CONFIG.sounds.bikeOn),
+            bikeRide: new Audio(CONFIG.sounds.bikeRide),
+            jump: new Audio(CONFIG.sounds.jump),
+            bgm: CONFIG.sounds.bgm.map(src => new Audio(src)),
+            crash: CONFIG.sounds.crash.map(src => new Audio(src)),
+            end: {
+                tall: new Audio(CONFIG.sounds.end.tall),
+                short: new Audio(CONFIG.sounds.end.short),
+                flying: new Audio(CONFIG.sounds.end.flying)
+            }
+        };
+
+        sounds.bikeRide.loop = true;
+
+        // BGM 관리
+        let currentBgmIndex = 0;
+        let isBgmPlaying = false;
+        let isBgmMuted = false;
+
+        function playCurrentBgm() {
+            // 모든 BGM 정지
+            sounds.bgm.forEach(audio => {
+                audio.pause();
+                audio.currentTime = 0;
+            });
+
+            // 현재 선택된 BGM 재생
+            const currentBgm = sounds.bgm[currentBgmIndex];
+            currentBgm.loop = true;
+            currentBgm.volume = document.getElementById('volumeSlider').value / 100;
+            currentBgm.muted = isBgmMuted;
+            currentBgm.play().catch(e => console.log('BGM play failed:', e));
+            isBgmPlaying = true;
+
+            // UI 업데이트
+            document.getElementById('trackInfo').textContent = `BGM ${currentBgmIndex + 1}`;
+            document.getElementById('btnPlayPause').textContent = '⏸';
+        }
+
+        function pauseAllBgm() {
+            sounds.bgm.forEach(audio => audio.pause());
+            isBgmPlaying = false;
+            document.getElementById('btnPlayPause').textContent = '▶';
+        }
+
+        function stopAllBgm() {
+            sounds.bgm.forEach(audio => {
+                audio.pause();
+                audio.currentTime = 0;
+            });
+            isBgmPlaying = false;
+            document.getElementById('btnPlayPause').textContent = '▶';
+        }
+
+        // BGM 컨트롤러 이벤트
+        document.getElementById('btnPlayPause').addEventListener('click', () => {
+            if (isBgmPlaying) {
+                pauseAllBgm();
+            } else {
+                playCurrentBgm();
+            }
+        });
+
+        document.getElementById('btnPrev').addEventListener('click', () => {
+            currentBgmIndex = (currentBgmIndex - 1 + sounds.bgm.length) % sounds.bgm.length;
+            if (isBgmPlaying) {
+                playCurrentBgm();
+            } else {
+                document.getElementById('trackInfo').textContent = `BGM ${currentBgmIndex + 1}`;
+            }
+        });
+
+        document.getElementById('btnNext').addEventListener('click', () => {
+            currentBgmIndex = (currentBgmIndex + 1) % sounds.bgm.length;
+            if (isBgmPlaying) {
+                playCurrentBgm();
+            } else {
+                document.getElementById('trackInfo').textContent = `BGM ${currentBgmIndex + 1}`;
+            }
+        });
+
+        document.getElementById('btnMute').addEventListener('click', () => {
+            isBgmMuted = !isBgmMuted;
+            sounds.bgm.forEach(audio => audio.muted = isBgmMuted);
+            document.getElementById('btnMute').textContent = isBgmMuted ? '🔇' : '🔊';
+        });
+
+        document.getElementById('volumeSlider').addEventListener('input', (e) => {
+            const volume = e.target.value / 100;
+            sounds.bgm.forEach(audio => audio.volume = volume);
+        });
+
+        // ============================================
+        // 충돌 감지
+        // ============================================
+        function checkCollision(obstacle) {
+            const playerBox = {
+                x: player.x + player.hitbox.offsetX,
+                y: player.y + player.hitbox.offsetY,
+                width: player.width + player.hitbox.width,
+                height: player.height + player.hitbox.height
+            };
+
+            const obstacleBox = {
+                x: obstacle.x + obstacle.hitbox.offsetX,
+                y: obstacle.y + obstacle.hitbox.offsetY,
+                width: obstacle.width + obstacle.hitbox.width,
+                height: obstacle.height + obstacle.hitbox.height
+            };
+
+            return playerBox.x < obstacleBox.x + obstacleBox.width &&
+                   playerBox.x + playerBox.width > obstacleBox.x &&
+                   playerBox.y < obstacleBox.y + obstacleBox.height &&
+                   playerBox.y + playerBox.height > obstacleBox.y;
+        }
+
+        // ============================================
+        // 게임 제어
+        // ============================================
+        function startGame() {
+            gameStarted = true;
+            gameRunning = true;
+            score = 0;
+            distance = 0;
+            gameSpeed = CONFIG.physics.initialSpeed;
+            obstacles = [];
+            frameCount = 0;
+            player.init();
+            document.getElementById('gameOver').style.display = 'none';
+
+            // BGM은 게임 재시작과 무관하게 계속 재생 (첫 시작시에만 재생)
+            if (!isBgmPlaying) {
+                playCurrentBgm();
+            }
+
+            // 시작 사운드 재생
+            sounds.start.currentTime = 0;
+            sounds.start.play().catch(e => console.log('Audio play failed:', e));
+
+            // bike-on 재생
+            sounds.bikeOn.currentTime = 0;
+            sounds.bikeOn.play().catch(e => console.log('Audio play failed:', e));
+
+            // bike-on 종료 후 bike-ride 재생
+            sounds.bikeOn.onended = () => {
+                if (gameRunning) {
+                    sounds.bikeRide.currentTime = 0;
+                    sounds.bikeRide.play().catch(e => console.log('Audio play failed:', e));
+                }
+            };
+
+            gameLoop();
+        }
+
+        function gameOver(obstacleType) {
+            gameRunning = false;
+
+            // 자전거 사운드 정지
+            sounds.bikeRide.pause();
+            sounds.bikeRide.currentTime = 0;
+
+            // 충돌 사운드 재생
+            sounds.crash.forEach(sound => {
+                sound.currentTime = 0;
+                sound.play().catch(e => console.log('Audio play failed:', e));
+            });
+
+            // 장애물 타입에 따른 종료 사운드 재생
+            setTimeout(() => {
+                const endSound = sounds.end[obstacleType];
+                endSound.currentTime = 0;
+                endSound.play().catch(e => console.log('Audio play failed:', e));
+            }, 200);
+
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        // ============================================
+        // 게임 루프
+        // ============================================
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            // 캔버스 클리어
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 지면 경계선 그리기
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, CONFIG.ground.height);
+            ctx.lineTo(canvas.width, CONFIG.ground.height);
+            ctx.stroke();
+
+            // 플레이어 업데이트 및 그리기
+            player.update();
+            player.draw();
+
+            // 이동 거리 및 점수 계산
+            distance += gameSpeed;
+            score = Math.floor(distance / 100);
+
+            // 부드러운 속도 증가 (점수에 비례)
+            // 예: 점수 0 = 초기속도, 점수 1000 = 초기속도 + (1000 / 100 * 0.5) = 초기속도 + 5
+            gameSpeed = CONFIG.physics.initialSpeed + (score / 100) * CONFIG.physics.speedIncrement;
+
+            // 장애물 생성
+            frameCount++;
+            if (frameCount % CONFIG.obstacles.spawnInterval === 0) {
+                createObstacle();
+            }
+
+            // 장애물 업데이트 및 그리기
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                obstacle.update();
+                obstacle.draw();
+
+                // 충돌 체크
+                if (checkCollision(obstacle)) {
+                    gameOver(obstacle.type);
+                    return;
+                }
+
+                // 화면 밖으로 나간 장애물 제거
+                if (obstacle.isOffScreen()) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            // 점수 표시
+            document.getElementById('score').textContent = '점수: ' + score;
+
+            // 다음 프레임
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ============================================
+        // 초기 화면
+        // ============================================
+        function drawStartScreen() {
+            ctx.fillStyle = '#333';
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('클릭 또는 아무 키나 눌러 시작', canvas.width / 2, canvas.height / 2);
+
+            // 지면 경계선 그리기
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, CONFIG.ground.height);
+            ctx.lineTo(canvas.width, CONFIG.ground.height);
+            ctx.stroke();
+
+            // 플레이어 그리기
+            player.draw();
+        }
+
+        // ============================================
+        // 입력 처리
+        // ============================================
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+
+                // 게임 시작 전
+                if (!gameStarted) {
+                    startGame();
+                    return;
+                }
+
+                // 게임 오버 상태
+                if (gameStarted && !gameRunning) {
+                    restartGame();
+                    return;
+                }
+
+                // 게임 진행 중
+                if (gameRunning) {
+                    player.jump();
+                }
+            }
+        });
+
+        canvas.addEventListener('click', () => {
+            if (!gameStarted) {
+                startGame();
+            } else if (gameRunning) {
+                player.jump();
+            }
+        });
+
+        // 모바일 터치 지원
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // 스크롤 방지
+
+            if (!gameStarted) {
+                startGame();
+            } else if (gameStarted && !gameRunning) {
+                restartGame();
+            } else if (gameRunning) {
+                player.jump();
+            }
+        });
+
+        // ============================================
+        // 초기화
+        // ============================================
+        player.init();
+        drawStartScreen();
+    </script>
+</body>
+</html>
