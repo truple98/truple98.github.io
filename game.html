@@ -114,9 +114,9 @@
 
         /* BGM 컨트롤러 */
         #bgmController {
-            position: fixed;
-            top: 20px;
-            right: 20px;
+            position: absolute;
+            top: -60px;
+            right: 0;
             background: rgba(255, 255, 255, 0.95);
             padding: 10px;
             border-radius: 10px;
@@ -131,8 +131,6 @@
             #bgmController {
                 padding: 8px;
                 gap: 5px;
-                top: 5px;
-                right: 5px;
             }
         }
 
@@ -219,6 +217,16 @@
     </div>
 
     <div id="gameContainer">
+        <!-- BGM 컨트롤러 -->
+        <div id="bgmController">
+            <span class="track-info" id="trackInfo">BGM 1</span>
+            <button id="btnPrev" title="이전 곡">⏮</button>
+            <button id="btnPlayPause" title="재생/일시정지">▶</button>
+            <button id="btnNext" title="다음 곡">⏭</button>
+            <button id="btnMute" title="음소거">🔊</button>
+            <input type="range" id="volumeSlider" min="0" max="100" value="50" title="볼륨">
+        </div>
+
         <div id="score">점수: 0</div>
         <canvas id="gameCanvas" width="1200" height="400"></canvas>
         <div id="instructions">스페이스바: 점프</div>
@@ -228,16 +236,6 @@
             <p>최종 점수: <span id="finalScore">0</span></p>
             <p style="font-size: 16px; color: #666; margin-top: 10px;">스페이스바를 눌러 재시작</p>
         </div>
-    </div>
-
-    <!-- BGM 컨트롤러 -->
-    <div id="bgmController">
-        <span class="track-info" id="trackInfo">BGM 1</span>
-        <button id="btnPrev" title="이전 곡">⏮</button>
-        <button id="btnPlayPause" title="재생/일시정지">▶</button>
-        <button id="btnNext" title="다음 곡">⏭</button>
-        <button id="btnMute" title="음소거">🔊</button>
-        <input type="range" id="volumeSlider" min="0" max="100" value="50" title="볼륨">
     </div>
 
     <script>
