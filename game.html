@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Magnus Game</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,11 +21,15 @@
             min-height: 100vh;
             background: #f7f7f7;
             font-family: "Doto", sans-serif;
+            overflow: hidden;
         }
 
         #gameContainer {
             text-align: center;
             position: relative;
+            width: 100%;
+            max-width: 1200px;
+            padding: 0 10px;
         }
 
         #gameCanvas {
@@ -33,6 +37,8 @@
             background: white;
             display: block;
             margin: 0 auto;
+            max-width: 100%;
+            height: auto;
         }
 
         #score {
@@ -159,6 +165,26 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        // 모바일 화면 크기에 맞게 캔버스 조정
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            const maxWidth = container.clientWidth - 20; // padding 고려
+            const aspectRatio = 400 / 1200; // height / width
+
+            if (maxWidth < 1200) {
+                canvas.style.width = maxWidth + 'px';
+                canvas.style.height = (maxWidth * aspectRatio) + 'px';
+            } else {
+                canvas.style.width = '1200px';
+                canvas.style.height = '400px';
+            }
+        }
+
+        // 초기 로드 및 리사이즈 시 호출
+        window.addEventListener('load', resizeCanvas);
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', resizeCanvas);
 
         // ============================================
         // 게임 설정 (모든 값을 여기서 조정)
