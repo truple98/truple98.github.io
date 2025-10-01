@@ -65,7 +65,7 @@
 
         #gameOver {
             display: none;
-            position: absolute;
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -74,6 +74,8 @@
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             text-align: center;
+            z-index: 100;
+            width: 400px;
         }
 
         #gameOver h2 {
@@ -895,7 +897,8 @@
             }
         });
 
-        canvas.addEventListener('click', () => {
+        // 마우스 클릭 (캔버스에서만)
+        canvas.addEventListener('mousedown', () => {
             if (!gameStarted) {
                 startGame();
             } else if (gameRunning) {
@@ -903,8 +906,27 @@
             }
         });
 
-        // 모바일 터치 지원
-        canvas.addEventListener('touchstart', (e) => {
+        // 브라우저 전체에서 클릭 감지
+        document.addEventListener('mousedown', (e) => {
+            // BGM 컨트롤러나 게임오버 모달 클릭은 제외
+            if (e.target.closest('#bgmController') || e.target.closest('#gameOver')) {
+                return;
+            }
+
+            if (!gameStarted) {
+                startGame();
+            } else if (gameRunning) {
+                player.jump();
+            }
+        });
+
+        // 모바일 터치 지원 (브라우저 전체)
+        document.addEventListener('touchstart', (e) => {
+            // BGM 컨트롤러나 게임오버 모달 터치는 제외
+            if (e.target.closest('#bgmController') || e.target.closest('#gameOver')) {
+                return;
+            }
+
             e.preventDefault(); // 스크롤 방지
 
             if (!gameStarted) {
@@ -914,7 +936,7 @@
             } else if (gameRunning) {
                 player.jump();
             }
-        });
+        }, { passive: false });
 
         // 모바일에서 게임오버 모달 터치로 재시작
         document.getElementById('gameOver').addEventListener('touchstart', (e) => {
